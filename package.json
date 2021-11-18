@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/design-hub-arc/software-db#readme",
   "dependencies": {
-    "express": "^4.17.1"
+    "express": "^4.17.1",
+    "express-session": "^1.17.2"
   }
 }
