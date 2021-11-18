@@ -7,11 +7,7 @@ const session = require("express-session");
 const mysqlSession = require("express-mysql-session");
 const mysql = require("mysql");
 
-const {mysqlOptions} = require("./src/config.js");
-
-
-
-const PORT = 3000; // TODO: read from config file
+const {mysqlOptions, get} = require("./src/config.js");
 
 
 
@@ -40,7 +36,7 @@ app.use(session({
     }),
     cookie: {
         path: "/",
-        secure: !true, // TODO: needs to be false for localhost, true for production
+        secure: get("isProduction"), // needs to be false for localhost, true for production
         maxAge: 1000 * 60 * 60 // keep cookie for 1 hour
     }
 }));
@@ -69,6 +65,6 @@ connection.end(); // do I need this anywhere?
 
 
 
-app.listen(PORT, ()=>{
-    console.log(`Software DB started on http://localhost:${PORT}`);
+app.listen(get("port"), ()=>{
+    console.log(`Software DB started on http://localhost:${get("port")}`);
 });
