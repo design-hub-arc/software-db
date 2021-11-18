@@ -4,6 +4,10 @@ Dependencies
 */
 const express = require("express");
 const session = require("express-session");
+const mysqlSession = require("express-mysql-session");
+const mysql = require("mysql");
+
+const {mysqlOptions} = require("./src/config.js");
 
 
 
@@ -11,12 +15,29 @@ const PORT = 3000; // TODO: read from config file
 
 
 
+const connection = mysql.createConnection({
+    host: mysqlOptions.host,
+    user: mysqlOptions.user,
+    password: mysqlOptions.password,
+    database: mysqlOptions.database
+});
+connection.connect();
+
+
 const app = express();
 app.use(express.static("public"));
+
+const MySQLStore = mysqlSession(session);
 app.use(session({
     secret: "get a better secret!", // TODO: read from config file
     resave: false, // only save when cookies change
-    saveUninitialized: false, // don't save cookies with no data
+    saveUninitialized: false, // don't save cookies with no data,
+    store: new MySQLStore({
+        host: mysqlOptions.host,
+        user: mysqlOptions.user,
+        password: mysqlOptions.password,
+        database: mysqlOptions.database
+    }),
     cookie: {
         path: "/",
         secure: !true, // TODO: needs to be false for localhost, true for production
@@ -40,6 +61,11 @@ app.get("/logout", (req, res)=>{
        console.error(error);
    });
 });
+
+
+
+connection.end(); // do I need this anywhere?
+// do I need to close the sessionStore?
 
 
 

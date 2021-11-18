@@ -18,6 +18,8 @@
   "homepage": "https://github.com/design-hub-arc/software-db#readme",
   "dependencies": {
     "express": "^4.17.1",
-    "express-session": "^1.17.2"
+    "express-mysql-session": "^2.1.7",
+    "express-session": "^1.17.2",
+    "mysql": "^2.18.1"
   }
 }
