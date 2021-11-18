@@ -1,0 +1,22 @@
+{
+  "name": "software-db",
+  "version": "1.0.0",
+  "description": "A database management website for tracking software licenses",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/design-hub-arc/software-db.git"
+  },
+  "author": "American River College Design Hub",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/design-hub-arc/software-db/issues"
+  },
+  "homepage": "https://github.com/design-hub-arc/software-db#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
