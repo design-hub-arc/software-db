@@ -8,16 +8,8 @@ const mysqlSession = require("express-mysql-session");
 const mysql = require("mysql");
 
 const {mysqlOptions, get} = require("./src/config.js");
+const {extractMySqlConfig, DatabaseConnection} = require("./src/database.js");
 
-
-
-const connection = mysql.createConnection({
-    host: mysqlOptions.host,
-    user: mysqlOptions.user,
-    password: mysqlOptions.password,
-    database: mysqlOptions.database
-});
-connection.connect();
 
 
 const app = express();
@@ -28,12 +20,7 @@ app.use(session({
     secret: "get a better secret!", // TODO: read from config file
     resave: false, // only save when cookies change
     saveUninitialized: false, // don't save cookies with no data,
-    store: new MySQLStore({
-        host: mysqlOptions.host,
-        user: mysqlOptions.user,
-        password: mysqlOptions.password,
-        database: mysqlOptions.database
-    }),
+    store: new MySQLStore(extractMySqlConfig(mysqlOptions)),
     cookie: {
         path: "/",
         secure: get("isProduction"), // needs to be false for localhost, true for production
@@ -41,7 +28,7 @@ app.use(session({
     }
 }));
 
-
+const db = new DatabaseConnection(mysqlOptions);
 
 app.get("/", (req, res)=>{
     if(!req.session.count){
@@ -60,11 +47,16 @@ app.get("/logout", (req, res)=>{
 
 
 
-connection.end(); // do I need this anywhere?
-// do I need to close the sessionStore?
-
-
-
-app.listen(get("port"), ()=>{
+const server = app.listen(get("port"), ()=>{
     console.log(`Software DB started on http://localhost:${get("port")}`);
+});
+
+process.on("SIGTERM", ()=>{
+    server.close(()=>{
+        console.log("server closed");
+    });
+    db.end(()=>{
+        console.log("database connection closed");
+    });
+    // do I need to close the sessionStore?
 });
