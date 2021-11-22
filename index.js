@@ -6,6 +6,7 @@ const express = require("express");
 const session = require("express-session");
 const mysqlSession = require("express-mysql-session");
 const mysql = require("mysql");
+const pug = require("pug");
 
 const {mysqlOptions, get} = require("./src/config.js");
 const {extractMySqlConfig, DatabaseConnection} = require("./src/database.js");
@@ -35,7 +36,12 @@ app.get("/", (req, res)=>{
         req.session.count = 0;
     }
     ++req.session.count;
-    res.send(`This works! ${req.session.count}`);
+
+    const pugFunc = pug.compileFile("./views/index.pug");
+
+    res.send(pugFunc({
+        name: `Test run #${req.session.count}`
+    }));
 });
 
 app.get("/logout", (req, res)=>{
