@@ -44,6 +44,11 @@ app.get("/", (req, res)=>{
     }));
 });
 
+app.get("/table", (req, res)=>{
+    const pugFunc = pug.compileFile("./views/table.pug");
+    res.send(pugFunc({}));
+});
+
 app.get("/logout", (req, res)=>{
    req.session.destroy((error)=>{
        console.error("Failed to destroy session");
