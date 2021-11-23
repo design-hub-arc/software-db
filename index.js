@@ -9,7 +9,11 @@ const mysql = require("mysql");
 const pug = require("pug");
 
 const {mysqlOptions, get} = require("./src/config.js");
-const {extractMySqlConfig, DatabaseConnection} = require("./src/database.js");
+const {
+    extractMySqlConfig,
+    DatabaseConnection,
+    createRequiredTablesIn
+} = require("./src/database.js");
 
 
 
@@ -30,6 +34,7 @@ app.use(session({
 }));
 
 const db = new DatabaseConnection(mysqlOptions);
+createRequiredTablesIn(db, get("dbPrefix"));
 
 app.get("/", (req, res)=>{
     if(!req.session.count){
