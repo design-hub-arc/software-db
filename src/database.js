@@ -70,10 +70,10 @@ class Table {
     creationQuery is a function that accepts a table name and outputs a query to
     generate this table.
     */
-    constructor(name, creationQuery, indexColumns = []){
+    constructor(name, creationQuery, indexedColumns = []){
         this.name = name;
         this.creationQuery = creationQuery;
-        this.indexColumns = indexColumns;
+        this.indexedColumns = indexedColumns;
     }
 
     async isCreatedIn(db, prefix){
@@ -85,24 +85,59 @@ class Table {
               AND table_name = ${fullName};
         `;
         const result = await db.query(q);
-        return result.rows[0].count != 0;
+        return result.rows[0].count !== 0;
+    }
+
+    async createIn(db, prefix){
+        await db.query(this.creationQuery(`${prefix}${this.name}`));
+    }
+
+    async createIfNotIn(db, prefix){
+        if(!(await this.isCreatedIn(db, prefix))){
+            await this.createIn(db, prefix);
+        }
+    }
+
+    async createIndexes(db, prefix){
+        const fullName = `${prefix}${this.name}`;
+        let idxName;
+        let result;
+        for(let column of this.indexedColumns){
+            // TODO: make sure this isn't too long
+            //                                               parens around stuff
+            idxName = `${prefix}${this.name}_${column.replace(/\(.*\)/g, "")}_idx`;
+            result = await db.query(`
+                SELECT COUNT(*) AS count
+                FROM information_schema.statistics
+                WHERE index_name = ${mysql.escape(idxName)}
+                  AND table_name = ${mysql.escape(fullName)}
+                  AND table_schema = ${mysql.escape(db.databaseName)};
+            `);
+            if(result.rows[0].count === 0){
+                await db.query(`
+                    CREATE INDEX ${idxName} ON ${fullName} (${column});
+                `);
+            } else {
+                console.log(`${idxName} exists`);
+            }
+        }
     }
 }
 
 const REQUIRED_TABLES = [
     new Table("test", (name)=>`
         CREATE TABLE ${name} (
-            id  int         PRIMARY KEY AUTO INCREMENT
-            msg VARCHAR(20) NOT NULL
+            id  int         PRIMARY KEY AUTO_INCREMENT,
+            msg VARCHAR(20) NOT NULL,
+            num int NOT NULL
         );
-    `)
+    `, ["msg(10)", "num"])
 ];
 
 async function createRequiredTablesIn(db, prefix){
-    let created;
     for(let table of REQUIRED_TABLES){
-        created = await table.isCreatedIn(db, prefix);
-        console.log(`${table.name}? ${created}`);
+        await table.createIfNotIn(db, prefix);
+        await table.createIndexes(db, prefix);
     }
 }
 exports.createRequiredTablesIn = createRequiredTablesIn;
