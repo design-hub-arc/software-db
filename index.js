@@ -14,6 +14,7 @@ const {
     DatabaseConnection,
     createRequiredTablesIn
 } = require("./src/database.js");
+const repositories = require("./src/repositories.js");
 
 
 
@@ -33,8 +34,14 @@ app.use(session({
     }
 }));
 
+
+
 const db = new DatabaseConnection(get("dbPrefix"), mysqlOptions);
 createRequiredTablesIn(db);
+const subjects = new repositories.Subjects(db);
+subjects.getAllSubjects().then(console.table);
+
+
 
 app.get("/", (req, res)=>{
     if(!req.session.count){

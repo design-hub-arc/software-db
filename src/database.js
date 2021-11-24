@@ -157,11 +157,23 @@ class Table {
 const REQUIRED_TABLES = [
     new Table("test", (name)=>`
         CREATE TABLE ${name} (
-            id  int         PRIMARY KEY AUTO_INCREMENT,
+            id  int PRIMARY KEY AUTO_INCREMENT,
             msg VARCHAR(20) NOT NULL,
             num int NOT NULL
         );
-    `, ["msg(10)", "num"])
+    `, ["msg(10)", "num"]),
+
+    new Table("subject", (name)=>`
+        CREATE TABLE ${name} (
+            id int PRIMARY KEY AUTO_INCREMENT,
+            category VARCHAR(5) NOT NULL,
+            name VARCHAR(20) NOT NULL,
+            description VARCHAR(255) NOT NULL DEFAULT '',
+
+            CONSTRAINT ${name}_category_ck CHECK (category IN ('who', 'what', 'when', 'where', 'why')),
+            CONSTRAINT ${name}_name_uk UNIQUE(name)
+        );
+    `, ["name"])
 ];
 
 async function createRequiredTablesIn(db){
