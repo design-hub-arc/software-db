@@ -1,15 +1,41 @@
 /*
 This module handles all of the database interface configuration
 
+About Table Prefixes:
+    Since Design Hub interns have limited priviledges on the ARC Power Server,
+    they usually cannot create new databases in its MySQL server. Still, we need
+    some way of distinguishing between the tables of one project and those of
+    another. To resolve this issue, projects such as this one use TABLE
+    PREFIXING to logically partition tables within the database. For example,
+    suppose two projects, A and B, both want a table named "user". Table
+    prefixing is where we do this:
+
+        a_user
+        b_user
+
+    In this instance, "a_" and "b_" are the table prefixes, whereas "user" is
+    the table name. The DatabaseConnection class has a built-in method for
+    proving these fully-qualified table names:
+
+        const projectA = new DatabaseConnection("a_", {...});
+        const projectB = new DatabaseConnection("b_", {...});
+        console.log(projectA.table("user")); // a_user
+        console.log(projectB.table("user")); // b_user
+
+
+
 Exports:
-    extractMySqlConfig(object)
+    * extractMySqlConfig(object)
         returns an object containing the subset of useful mysql configuration
         attributes in the input
 
-    DatabaseConnection(config)
-        query(q)=>Promise<{rows, fields}>
+    * DatabaseConnection(tablePrefix, config)
+        * query(q)=>Promise<{rows, fields}>
+        * table(name)=>String
+            * returns the prefixed name of the table in this DB with the given
+              base name.
 
-    createRequiredTablesIn(db, prefix)=>Promise<null>
+    * createRequiredTablesIn(db)=>Promise<null>
         creates all tables this program requires in the given database. Does not
         create tables that already exist.
 */
@@ -40,10 +66,15 @@ exports.extractMySqlConfig = extractMySqlConfig;
 An Adapter for converting the callback-based mysql module to a Promise
 */
 class DatabaseConnection {
-    constructor(config){
+    constructor(databasePrefix, config){
+        this.prefix = databasePrefix;
         this.databaseName = config.database; // used later
         // can use mysql.createPool with connectionLimit in config to allow multithreading
         this.connection = mysql.createConnection(extractMySqlConfig(config));
+    }
+
+    table(name){
+        return `${this.prefix}${name}`;
     }
 
     query(q){
@@ -76,36 +107,35 @@ class Table {
         this.indexedColumns = indexedColumns;
     }
 
-    async isCreatedIn(db, prefix){
-        const fullName = mysql.escape(`${prefix}${this.name}`);
+    async isCreatedIn(db){
         const q = `
             SELECT COUNT(*) AS count
             FROM information_schema.tables
             WHERE table_schema = ${mysql.escape(db.databaseName)}
-              AND table_name = ${fullName};
+              AND table_name = ${mysql.escape(db.table(this.name))};
         `;
         const result = await db.query(q);
         return result.rows[0].count !== 0;
     }
 
-    async createIn(db, prefix){
-        await db.query(this.creationQuery(`${prefix}${this.name}`));
+    async createIn(db){
+        await db.query(this.creationQuery(db.table(this.name)));
     }
 
-    async createIfNotIn(db, prefix){
-        if(!(await this.isCreatedIn(db, prefix))){
-            await this.createIn(db, prefix);
+    async createIfNotIn(db){
+        if(!(await this.isCreatedIn(db))){
+            await this.createIn(db);
         }
     }
 
-    async createIndexes(db, prefix){
-        const fullName = `${prefix}${this.name}`;
+    async createIndexes(db){
+        const fullName = db.table(this.name);
         let idxName;
         let result;
         for(let column of this.indexedColumns){
             // TODO: make sure this isn't too long
             //                                               parens around stuff
-            idxName = `${prefix}${this.name}_${column.replace(/\(.*\)/g, "")}_idx`;
+            idxName = `${db.prefix}${this.name}_${column.replace(/\(.*\)/g, "")}_idx`;
             result = await db.query(`
                 SELECT COUNT(*) AS count
                 FROM information_schema.statistics
@@ -134,10 +164,10 @@ const REQUIRED_TABLES = [
     `, ["msg(10)", "num"])
 ];
 
-async function createRequiredTablesIn(db, prefix){
+async function createRequiredTablesIn(db){
     for(let table of REQUIRED_TABLES){
-        await table.createIfNotIn(db, prefix);
-        await table.createIndexes(db, prefix);
+        await table.createIfNotIn(db);
+        await table.createIndexes(db);
     }
 }
 exports.createRequiredTablesIn = createRequiredTablesIn;

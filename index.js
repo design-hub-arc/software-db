@@ -33,8 +33,8 @@ app.use(session({
     }
 }));
 
-const db = new DatabaseConnection(mysqlOptions);
-createRequiredTablesIn(db, get("dbPrefix"));
+const db = new DatabaseConnection(get("dbPrefix"), mysqlOptions);
+createRequiredTablesIn(db);
 
 app.get("/", (req, res)=>{
     if(!req.session.count){
