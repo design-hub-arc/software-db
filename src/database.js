@@ -119,7 +119,7 @@ class Table {
     }
 
     async createIn(db){
-        await db.query(this.creationQuery(db.table(this.name)));
+        await db.query(this.creationQuery(db.prefix, db.table(this.name)));
     }
 
     async createIfNotIn(db){
@@ -155,7 +155,7 @@ class Table {
 }
 
 const REQUIRED_TABLES = [
-    new Table("test", (name)=>`
+    new Table("test", (pre, name)=>`
         CREATE TABLE ${name} (
             id  int PRIMARY KEY AUTO_INCREMENT,
             msg VARCHAR(20) NOT NULL,
@@ -163,7 +163,7 @@ const REQUIRED_TABLES = [
         );
     `, ["msg(10)", "num"]),
 
-    new Table("subject", (name)=>`
+    new Table("subject", (pre, name)=>`
         CREATE TABLE ${name} (
             id int PRIMARY KEY AUTO_INCREMENT,
             category VARCHAR(5) NOT NULL,
@@ -173,7 +173,20 @@ const REQUIRED_TABLES = [
             CONSTRAINT ${name}_category_ck CHECK (category IN ('who', 'what', 'when', 'where', 'why')),
             CONSTRAINT ${name}_name_uk UNIQUE(name)
         );
-    `, ["name"])
+    `, ["name"]),
+
+    new Table("subject_child", (pre, name)=>`
+        CREATE TABLE ${name} (
+            id int PRIMARY KEY AUTO_INCREMENT,
+            parent_id int NOT NULL,
+            child_id int NOT NULL,
+
+            CONSTRAINT ${name}_parent_id_child_id_uk UNIQUE (parent_id, child_id),
+            CONSTRAINT ${name}_parent_id_child_id_ck CHECK (parent_id != child_id),
+            CONSTRAINT ${name}_parent_id_fk FOREIGN KEY (parent_id) REFERENCES ${pre}subject (id) ON DELETE CASCADE,
+            CONSTRAINT ${name}_child_id_fk FOREIGN KEY (child_id) REFERENCES ${pre}subject (id) ON DELETE CASCADE
+        );
+    `, ["parent_id", "child_id"])
 ];
 
 async function createRequiredTablesIn(db){

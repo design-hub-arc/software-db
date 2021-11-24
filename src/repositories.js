@@ -5,6 +5,7 @@ pattern, where the storage and retrieval of entities is abstractified.
 
 Exports:
     * Subjects(DatabaseConnection)
+        Category and name columns are in lower case.
         * storeSubject(category, name, description)=>Promise<>
             Creates a new subject in the database. category is automatically
             converted to the proper case. Throws an error if a subject with the
@@ -13,6 +14,8 @@ Exports:
             Returns the subject with the given name. Throws an error if no such
             subject exists with the given name.
         * getAllSubjects()=>Promise<{category, name, description}[]>
+        * addChild(parentName, childName)=>Promise<>
+            Makes the first subject the parent of the second.
 */
 
 
@@ -62,6 +65,27 @@ class Subjects {
                 description: description
             }; // this filters out properties we don't want to expose (ID)
         });
+    }
+
+    addChild(parentName, childName){
+        parentName = parentName.toLowerCase();
+        childName = childName.toLowerCase();
+        const q = `
+            INSERT INTO ${this.db.table("subject_child")} (parent_id, child_id)
+            VALUES (
+                (
+                    SELECT id
+                    FROM ${this.db.table("subject")}
+                    WHERE name = ${escape(parentName)}
+                ),
+                (
+                    SELECT id
+                    FROM ${this.db.table("subject")}
+                    WHERE name = ${escape(childName)}
+                )
+            )
+        `;
+        return this.db.query(q);
     }
 }
 exports.Subjects = Subjects;
