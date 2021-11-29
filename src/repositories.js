@@ -30,9 +30,9 @@ Exports:
         * getAllApplications()=>Promise<{name, type}[]>
 
     * Licenses(DatabaseConnection)
-        * storeLicense(expires, accountingCode, applicationNames)=>Promise<null>
+        * storeLicense(expires, accountingCode, applicationNames, tags)=>Promise<null>
             if accountingCode = undefined, uses the default 'unknown' accounting
-            code.
+            code. tags is an object of name: [values] pairs
         * getAllLicenses()=>Promise<{expires, accountingCode, applicationNames}[]>
 */
 
@@ -189,7 +189,7 @@ class Licenses {
         this.db = databaseConnection;
     }
 
-    async storeLicense(expires, accountingCode, applicationNames){
+    async storeLicense(expires, accountingCode, applicationNames, tags){
         if(applicationNames.length === 0){
             throw new Error("license must contain at least 1 application");
         }
@@ -219,6 +219,9 @@ class Licenses {
             );
         `);
         await Promise.all(bridgeQs.map((q)=>this.db.query(q)));
+
+
+        // todo: insert tags
     }
 
     async getAllLicenses(){
@@ -244,6 +247,8 @@ class Licenses {
 
             licenses.get(row.id).applicationNames.push(row.application_name);
         });
+
+        //todo: retrieve tags
 
         return Array.from(licenses.values());
     }

@@ -219,7 +219,20 @@ const REQUIRED_TABLES = [
             CONSTRAINT ${name}_license_id_fk FOREIGN KEY (license_id) REFERENCES ${pre}license (id) ON DELETE CASCADE,
             CONSTRAINT ${name}_application_id_fk FOREIGN KEY (application_id) REFERENCES ${pre}application (id) ON DELETE CASCADE
         );
-    `)
+    `, ["license_id"]),
+
+    new Table("license_subject", (pre, name)=>`
+        CREATE TABLE ${name} (
+            id int PRIMARY KEY AUTO_INCREMENT,
+            license_id int NOT NULL,
+            subject_id int NOT NULL,
+            value VARCHAR(256) NOT NULL,
+
+            CONSTRAINT ${name}_uk UNIQUE (license_id, subject_id, value),
+            CONSTRAINT ${name}_license_id_fk FOREIGN KEY (license_id) REFERENCES ${pre}license (id) ON DELETE CASCADE,
+            CONSTRAINT ${name}_subject_id_fk FOREIGN KEY (subject_id) REFERENCES ${pre}subject (id) ON DELETE CASCADE
+        );
+    `, ["license_id"])
 ];
 
 async function createRequiredTablesIn(db){
