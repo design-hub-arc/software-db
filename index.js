@@ -38,9 +38,8 @@ app.use(session({
 
 const db = new DatabaseConnection(get("dbPrefix"), mysqlOptions);
 createRequiredTablesIn(db);
-const applications = new repositories.Applications(db);
-applications.getAllApplications().then(console.table);
-applications.getApplicationByName("Vyond").then(console.log);
+const licenses = new repositories.Licenses(db);
+licenses.getAllLicenses().then(console.table);
 
 app.get("/", (req, res)=>{
     if(!req.session.count){

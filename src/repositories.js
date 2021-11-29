@@ -28,6 +28,12 @@ Exports:
             already exists.
         * getApplicationByName(name)=>Promise<{name, type}>
         * getAllApplications()=>Promise<{name, type}[]>
+
+    * Licenses(DatabaseConnection)
+        * storeLicense(expires, accountingCode, applicationNames)=>Promise<null>
+            if accountingCode = undefined, uses the default 'unknown' accounting
+            code.
+        * getAllLicenses()=>Promise<{expires, accountingCode, applicationNames}[]>
 */
 
 
@@ -182,4 +188,64 @@ class Licenses {
     constructor(databaseConnection){
         this.db = databaseConnection;
     }
+
+    async storeLicense(expires, accountingCode, applicationNames){
+        if(applicationNames.length === 0){
+            throw new Error("license must contain at least 1 application");
+        }
+        const licenseQ = (accountingCode == undefined) ?
+            `
+                INSERT INTO ${this.db.table("license")} (expires)
+                VALUES (${escape(expires)});
+            `
+            :
+            `
+                INSERT INTO ${this.db.table("license")} (expires, accounting_code)
+                VALUES (${escape(expires)}, ${escape(accountingCode)});
+            `
+        ; // exclude accountingCode if undefined
+        const result = await this.db.query(licenseQ);
+        const licenseId = result.rows.insertId;
+
+        const bridgeQs = applicationNames.map((name)=>`
+            INSERT INTO ${this.db.table("license_application")} (license_id, application_id)
+            VALUES (
+                ${escape(licenseId)},
+                (
+                    SELECT id
+                    FROM ${this.db.table("application")}
+                    WHERE name = ${escape(name)}
+                )
+            );
+        `);
+        await Promise.all(bridgeQs.map((q)=>this.db.query(q)));
+    }
+
+    async getAllLicenses(){
+        // joins are expensive, so there may be a better way to do this
+        const q = `
+            SELECT l.id AS id, l.expires AS expires, l.accounting_code AS accounting_code, a.name AS application_name
+            FROM ${this.db.table("license")} AS l
+                JOIN ${this.db.table("license_application")} AS la ON l.id = la.license_id
+                JOIN ${this.db.table("application")} AS a ON a.id = la.application_id;
+        `;
+
+        const result = await this.db.query(q);
+
+        const licenses = new Map();
+        result.rows.forEach((row)=>{ // Theta(|license_application|)
+            if(!licenses.has(row.id)){
+                licenses.set(row.id, {
+                    expires: row.expires,
+                    accountingCode: row.accounting_code,
+                    applicationNames: []
+                });
+            }
+
+            licenses.get(row.id).applicationNames.push(row.application_name);
+        });
+
+        return Array.from(licenses.values());
+    }
 }
+exports.Licenses = Licenses;

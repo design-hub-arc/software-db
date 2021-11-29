@@ -207,7 +207,19 @@ const REQUIRED_TABLES = [
             expires DATE NOT NULL,
             accounting_code VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN'
         );
-    `, ["expires"])
+    `, ["expires"]),
+
+    new Table("license_application", (pre, name)=>`
+        CREATE TABLE ${name} (
+            id int PRIMARY KEY AUTO_INCREMENT,
+            license_id int NOT NULL,
+            application_id int NOT NULL,
+
+            CONSTRAINT ${name}_license_id_application_id_uk UNIQUE(license_id, application_id),
+            CONSTRAINT ${name}_license_id_fk FOREIGN KEY (license_id) REFERENCES ${pre}license (id) ON DELETE CASCADE,
+            CONSTRAINT ${name}_application_id_fk FOREIGN KEY (application_id) REFERENCES ${pre}application (id) ON DELETE CASCADE
+        );
+    `)
 ];
 
 async function createRequiredTablesIn(db){
