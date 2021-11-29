@@ -19,6 +19,15 @@ Exports:
         * getAllDescendantSubjects(rootName)=>Promise<{category, name, description}>
             Returns each subject that is either the named subject or one of its
             descendants.
+
+    * Applications(DatabaseConnection)
+        * storeApplication(name, type)
+            Creates a new application in the database. type is automatically
+            converted to the proper case, and must be either "desktop", "web", or
+            "application". Throws an error if an application with the given name
+            already exists.
+        * getApplicationByName(name)=>Promise<{name, type}>
+        * getAllApplications()=>Promise<{name, type}[]>
 */
 
 
@@ -125,3 +134,52 @@ class Subjects {
     }
 }
 exports.Subjects = Subjects;
+
+class Applications {
+    constructor(databaseConnection){
+        this.db = databaseConnection;
+    }
+
+    storeApplication(name, type){
+        type = type.toLowerCase();
+        const q = `
+            INSERT INTO ${this.db.table("application")} (name, type)
+            VALUES (${escape(name)}, ${escape(type)});
+        `;
+        return this.db.query(q);
+    }
+
+    async getApplicationByName(name){
+        const q = `
+            SELECT name, type
+            FROM ${this.db.table("application")}
+            WHERE name = ${escape(name)};
+        `;
+        const r = await this.db.query(q);
+        return {
+            name: r.rows[0].name,
+            type: r.rows[0].type
+        };
+    }
+
+    async getAllApplications(){
+        const q = `
+            SELECT name, type
+            FROM ${this.db.table("application")};
+        `;
+        const r = await this.db.query(q);
+        return r.rows.map(({name, type})=>{
+           return {
+               name: name,
+               type: type
+           };
+        });
+    }
+}
+exports.Applications = Applications;
+
+class Licenses {
+    constructor(databaseConnection){
+        this.db = databaseConnection;
+    }
+}

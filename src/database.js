@@ -186,7 +186,28 @@ const REQUIRED_TABLES = [
             CONSTRAINT ${name}_parent_id_fk FOREIGN KEY (parent_id) REFERENCES ${pre}subject (id) ON DELETE CASCADE,
             CONSTRAINT ${name}_child_id_fk FOREIGN KEY (child_id) REFERENCES ${pre}subject (id) ON DELETE CASCADE
         );
-    `, ["parent_id", "child_id"])
+    `, ["parent_id", "child_id"]),
+
+    new Table("application", (pre, name)=>`
+        CREATE TABLE ${name} (
+            id int PRIMARY KEY AUTO_INCREMENT,
+            name VARCHAR(128) NOT NULL,
+            type VARCHAR(12) NOT NULL,
+
+            CONSTRAINT ${name}_name_uk UNIQUE (name),
+            CONSTRAINT ${name}_type_ck CHECK (type IN (
+                'application', 'desktop', 'web'
+            ))
+        );
+    `),
+
+    new Table("license", (pre, name)=>`
+        CREATE TABLE ${name} (
+            id int PRIMARY KEY AUTO_INCREMENT,
+            expires DATE NOT NULL,
+            accounting_code VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN'
+        );
+    `, ["expires"])
 ];
 
 async function createRequiredTablesIn(db){
