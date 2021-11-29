@@ -16,6 +16,9 @@ Exports:
         * getAllSubjects()=>Promise<{category, name, description}[]>
         * addChild(parentName, childName)=>Promise<>
             Makes the first subject the parent of the second.
+        * getAllDescendantSubjects(rootName)=>Promise<{category, name, description}>
+            Returns each subject that is either the named subject or one of its
+            descendants.
 */
 
 
@@ -86,6 +89,39 @@ class Subjects {
             )
         `;
         return this.db.query(q);
+    }
+
+    async getAllDescendantSubjects(rootName){
+        rootName = rootName.toLowerCase();
+        /*
+        UNION DISTINCT prevents infinite recursion in the case that two subjects
+        are aliases for each other, and thus are each other's parent
+
+        https://dev.mysql.com/doc/refman/8.0/en/with.html
+        */
+        const q = `
+            WITH RECURSIVE descendants(id, category, name, description) AS (
+                SELECT id, category, name, description
+                FROM ${this.db.table("subject")}
+                WHERE name = ${escape(rootName)}
+
+                UNION DISTINCT
+
+                SELECT child_id, s.category, s.name, s.description
+                FROM ${this.db.table("subject_child")} AS t
+                    JOIN ${this.db.table("subject")} AS s ON s.id = t.child_id
+                    JOIN descendants AS d ON d.id = t.parent_id
+            )
+            SELECT * FROM descendants;
+        `;
+        const r = await this.db.query(q);
+        return r.rows.map((row)=>{
+            return {
+                category: row.category,
+                name: row.name,
+                description: row.description
+            };
+        });
     }
 }
 exports.Subjects = Subjects;

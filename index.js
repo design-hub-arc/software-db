@@ -39,7 +39,8 @@ app.use(session({
 const db = new DatabaseConnection(get("dbPrefix"), mysqlOptions);
 createRequiredTablesIn(db);
 const subjects = new repositories.Subjects(db);
-
+subjects.getAllDescendantSubjects("test1").then(console.table);
+subjects.getAllDescendantSubjects("vendor").then(console.table);
 
 
 app.get("/", (req, res)=>{
