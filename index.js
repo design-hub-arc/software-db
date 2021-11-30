@@ -14,7 +14,7 @@ const {
     DatabaseConnection,
     createRequiredTablesIn
 } = require("./src/database.js");
-const repositories = require("./src/repositories.js");
+const {testDatabase} = require("./src/test.js");
 
 
 
@@ -38,8 +38,7 @@ app.use(session({
 
 const db = new DatabaseConnection(get("dbPrefix"), mysqlOptions);
 createRequiredTablesIn(db);
-const licenses = new repositories.Licenses(db);
-licenses.getAllLicenses().then(console.table);
+testDatabase(db);
 
 app.get("/", (req, res)=>{
     if(!req.session.count){

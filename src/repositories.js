@@ -33,7 +33,8 @@ Exports:
         * storeLicense(expires, accountingCode, applicationNames, tags)=>Promise<null>
             if accountingCode = undefined, uses the default 'unknown' accounting
             code. tags is an object of name: [values] pairs
-        * getAllLicenses()=>Promise<{expires, accountingCode, applicationNames}[]>
+        * getAllLicenses()=>Promise<{expires, accountingCode, applicationNames, tags}[]>
+            tags is an object of name: [values] pairs
 */
 
 
@@ -221,34 +222,80 @@ class Licenses {
         await Promise.all(bridgeQs.map((q)=>this.db.query(q)));
 
 
-        // todo: insert tags
+        // insert tags
+        const tagQs = [];
+        Object.entries(tags).forEach(([subject, values])=>{
+            values.forEach((value)=>{
+                tagQs.push(`
+                    INSERT INTO ${this.db.table("license_subject")} (
+                        license_id,
+                        subject_id,
+                        value
+                    ) VALUES (
+                        ${escape(licenseId)},
+                        (
+                            SELECT id
+                            FROM ${this.db.table("subject")}
+                            WHERE name = ${escape(subject)}
+                        ),
+                        ${escape(value)}
+                    );
+                `);
+            });
+        });
+        await Promise.all(tagQs.map((q)=>this.db.query(q)));
     }
 
     async getAllLicenses(){
-        // joins are expensive, so there may be a better way to do this
-        const q = `
-            SELECT l.id AS id, l.expires AS expires, l.accounting_code AS accounting_code, a.name AS application_name
-            FROM ${this.db.table("license")} AS l
-                JOIN ${this.db.table("license_application")} AS la ON l.id = la.license_id
-                JOIN ${this.db.table("application")} AS a ON a.id = la.application_id;
+        // get the single-value fields
+        const nonArrayPartsQ = `
+            SELECT id, expires, accounting_code
+            FROM ${this.db.table("license")};
         `;
-
-        const result = await this.db.query(q);
+        const allNonArrayPartsResult = await this.db.query(nonArrayPartsQ);
 
         const licenses = new Map();
-        result.rows.forEach((row)=>{ // Theta(|license_application|)
-            if(!licenses.has(row.id)){
-                licenses.set(row.id, {
-                    expires: row.expires,
-                    accountingCode: row.accounting_code,
-                    applicationNames: []
-                });
-            }
+        allNonArrayPartsResult.rows.forEach((row)=>{
+            licenses.set(row.id, {
+                expires: row.expires,
+                accountingCode: row.accounting_code,
+                applicationNames: [],
+                tags: {
 
-            licenses.get(row.id).applicationNames.push(row.application_name);
+                }
+            });
         });
 
-        //todo: retrieve tags
+        // get application names
+        const applicationsQ = `
+            SELECT license_id, a.name AS application_name
+            FROM ${this.db.table("license_application")} AS la
+                JOIN ${this.db.table("application")} AS a
+                ON la.application_id = a.id
+            ;
+        `;
+        const applicationResult = await this.db.query(applicationsQ);
+        applicationResult.rows.forEach((row)=>{
+            licenses.get(row.license_id).applicationNames.push(row.application_name);
+        });
+
+        // get tags
+        const tagsQ = `
+            SELECT license_id, s.name AS subject_name, value
+            FROM ${this.db.table("license_subject")} AS ls
+                JOIN ${this.db.table("subject")} AS s
+                ON ls.subject_id = s.id
+            ;
+        `;
+        const tagResult = await this.db.query(tagsQ);
+        let tags;
+        tagResult.rows.forEach((row)=>{
+            tags = licenses.get(row.license_id).tags;
+            if(!tags[row.subject_name]){
+                tags[row.subject_name] = [];
+            }
+            tags[row.subject_name].push(row.value);
+        });
 
         return Array.from(licenses.values());
     }
