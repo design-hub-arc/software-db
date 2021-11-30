@@ -98,8 +98,9 @@ exports.DatabaseConnection = DatabaseConnection;
 
 class Table {
     /*
-    creationQuery is a function that accepts a table name and outputs a query to
-    generate this table.
+    creationQuery is a function that accepts a prefix and complete table name,
+    then outputs the table-level definition of this. See REQUIRED_TABLES for
+    examples.
     */
     constructor(name, creationQuery, indexedColumns = []){
         this.name = name;
@@ -119,7 +120,12 @@ class Table {
     }
 
     async createIn(db){
-        await db.query(this.creationQuery(db.prefix, db.table(this.name)));
+        const q = `
+            CREATE TABLE ${db.table(this.name)} (
+                ${this.creationQuery(db.prefix, db.table(this.name))}
+            );
+        `;
+        await db.query(q);
     }
 
     async createIfNotIn(db){
@@ -156,84 +162,80 @@ class Table {
 
 const REQUIRED_TABLES = [
     new Table("subject", (pre, name)=>`
-        CREATE TABLE ${name} (
-            id int PRIMARY KEY AUTO_INCREMENT,
-            category VARCHAR(5) NOT NULL,
-            name VARCHAR(20) NOT NULL,
-            description VARCHAR(255) NOT NULL DEFAULT '',
+        id int PRIMARY KEY AUTO_INCREMENT,
+        category VARCHAR(5) NOT NULL,
+        name VARCHAR(20) NOT NULL,
+        description VARCHAR(255) NOT NULL DEFAULT '',
 
-            CONSTRAINT ${name}_category_ck CHECK (category IN ('who', 'what', 'when', 'where', 'why')),
-            CONSTRAINT ${name}_name_uk UNIQUE(name)
-        );
+        CONSTRAINT ${name}_category_ck CHECK (category IN ('who', 'what', 'when', 'where', 'why')),
+        CONSTRAINT ${name}_name_uk UNIQUE(name)
     `, ["name"]),
 
     new Table("subject_child", (pre, name)=>`
-        CREATE TABLE ${name} (
-            id int PRIMARY KEY AUTO_INCREMENT,
-            parent_id int NOT NULL,
-            child_id int NOT NULL,
+        id int PRIMARY KEY AUTO_INCREMENT,
+        parent_id int NOT NULL,
+        child_id int NOT NULL,
 
-            CONSTRAINT ${name}_parent_id_child_id_uk UNIQUE (parent_id, child_id),
-            CONSTRAINT ${name}_parent_id_child_id_ck CHECK (parent_id != child_id),
-            CONSTRAINT ${name}_parent_id_fk FOREIGN KEY (parent_id) REFERENCES ${pre}subject (id) ON DELETE CASCADE,
-            CONSTRAINT ${name}_child_id_fk FOREIGN KEY (child_id) REFERENCES ${pre}subject (id) ON DELETE CASCADE
-        );
+        CONSTRAINT ${name}_parent_id_child_id_uk UNIQUE (parent_id, child_id),
+        CONSTRAINT ${name}_parent_id_child_id_ck CHECK (parent_id != child_id),
+        CONSTRAINT ${name}_parent_id_fk FOREIGN KEY (parent_id) REFERENCES ${pre}subject (id) ON DELETE CASCADE,
+        CONSTRAINT ${name}_child_id_fk FOREIGN KEY (child_id) REFERENCES ${pre}subject (id) ON DELETE CASCADE
     `, ["parent_id", "child_id"]),
 
     new Table("application", (pre, name)=>`
-        CREATE TABLE ${name} (
-            id int PRIMARY KEY AUTO_INCREMENT,
-            name VARCHAR(128) NOT NULL,
-            type VARCHAR(12) NOT NULL,
+        id int PRIMARY KEY AUTO_INCREMENT,
+        name VARCHAR(128) NOT NULL,
+        type VARCHAR(12) NOT NULL,
 
-            CONSTRAINT ${name}_name_uk UNIQUE (name),
-            CONSTRAINT ${name}_type_ck CHECK (type IN (
-                'application', 'desktop', 'web'
-            ))
-        );
+        CONSTRAINT ${name}_name_uk UNIQUE (name),
+        CONSTRAINT ${name}_type_ck CHECK (type IN (
+            'application', 'desktop', 'web'
+        ))
     `),
 
     new Table("license", (pre, name)=>`
-        CREATE TABLE ${name} (
-            id int PRIMARY KEY AUTO_INCREMENT,
-            expires DATE NOT NULL,
-            accounting_code VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN'
-        );
+        id int PRIMARY KEY AUTO_INCREMENT,
+        expires DATE NOT NULL,
+        accounting_code VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN'
     `, ["expires"]),
 
     new Table("license_application", (pre, name)=>`
-        CREATE TABLE ${name} (
-            id int PRIMARY KEY AUTO_INCREMENT,
-            license_id int NOT NULL,
-            application_id int NOT NULL,
+        id int PRIMARY KEY AUTO_INCREMENT,
+        license_id int NOT NULL,
+        application_id int NOT NULL,
 
-            CONSTRAINT ${name}_license_id_application_id_uk UNIQUE(license_id, application_id),
-            CONSTRAINT ${name}_license_id_fk FOREIGN KEY (license_id) REFERENCES ${pre}license (id) ON DELETE CASCADE,
-            CONSTRAINT ${name}_application_id_fk FOREIGN KEY (application_id) REFERENCES ${pre}application (id) ON DELETE CASCADE
-        );
-    `, ["license_id"]),
+        CONSTRAINT ${name}_license_id_application_id_uk UNIQUE(license_id, application_id),
+        CONSTRAINT ${name}_license_id_fk FOREIGN KEY (license_id) REFERENCES ${pre}license (id) ON DELETE CASCADE,
+        CONSTRAINT ${name}_application_id_fk FOREIGN KEY (application_id) REFERENCES ${pre}application (id) ON DELETE CASCADE
+    `, ["license_id", "application_id"]),
 
     new Table("license_subject", (pre, name)=>`
-        CREATE TABLE ${name} (
-            id int PRIMARY KEY AUTO_INCREMENT,
-            license_id int NOT NULL,
-            subject_id int NOT NULL,
-            value VARCHAR(256) NOT NULL,
+        id int PRIMARY KEY AUTO_INCREMENT,
+        license_id int NOT NULL,
+        subject_id int NOT NULL,
+        value VARCHAR(256) NOT NULL,
 
-            CONSTRAINT ${name}_uk UNIQUE (license_id, subject_id, value),
-            CONSTRAINT ${name}_license_id_fk FOREIGN KEY (license_id) REFERENCES ${pre}license (id) ON DELETE CASCADE,
-            CONSTRAINT ${name}_subject_id_fk FOREIGN KEY (subject_id) REFERENCES ${pre}subject (id) ON DELETE CASCADE
-        );
-    `, ["license_id"]),
+        CONSTRAINT ${name}_uk UNIQUE (license_id, subject_id, value),
+        CONSTRAINT ${name}_license_id_fk FOREIGN KEY (license_id) REFERENCES ${pre}license (id) ON DELETE CASCADE,
+        CONSTRAINT ${name}_subject_id_fk FOREIGN KEY (subject_id) REFERENCES ${pre}subject (id) ON DELETE CASCADE
+    `, ["license_id", "subject_id"]),
 
     new Table("room", (pre, name)=>`
-        CREATE TABLE ${name} (
-            id int PRIMARY KEY AUTO_INCREMENT,
-            address VARCHAR(256) NOT NULL,
+        id int PRIMARY KEY AUTO_INCREMENT,
+        address VARCHAR(256) NOT NULL,
 
-            CONSTRAINT ${name}_address_uk UNIQUE (address)
-        );
-    `)
+        CONSTRAINT ${name}_address_uk UNIQUE (address)
+    `),
+
+    new Table("application_room", (pre, name)=>`
+        id int PRIMARY KEY AUTO_INCREMENT,
+        application_id int NOT NULL,
+        room_id int NOT NULL,
+
+        CONSTRAINT ${name}_uk UNIQUE(application_id, room_id),
+        CONSTRAINT ${name}_application_id_fk FOREIGN KEY (application_id) REFERENCES ${pre}application (id),
+        CONSTRAINT ${name}_room_id_fk FOREIGN KEY (room_id) REFERENCES ${pre}room (id)
+    `, ["application_id", "room_id"])
 ];
 
 async function createRequiredTablesIn(db){
