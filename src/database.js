@@ -155,14 +155,6 @@ class Table {
 }
 
 const REQUIRED_TABLES = [
-    new Table("test", (pre, name)=>`
-        CREATE TABLE ${name} (
-            id  int PRIMARY KEY AUTO_INCREMENT,
-            msg VARCHAR(20) NOT NULL,
-            num int NOT NULL
-        );
-    `, ["msg(10)", "num"]),
-
     new Table("subject", (pre, name)=>`
         CREATE TABLE ${name} (
             id int PRIMARY KEY AUTO_INCREMENT,
@@ -232,7 +224,16 @@ const REQUIRED_TABLES = [
             CONSTRAINT ${name}_license_id_fk FOREIGN KEY (license_id) REFERENCES ${pre}license (id) ON DELETE CASCADE,
             CONSTRAINT ${name}_subject_id_fk FOREIGN KEY (subject_id) REFERENCES ${pre}subject (id) ON DELETE CASCADE
         );
-    `, ["license_id"])
+    `, ["license_id"]),
+
+    new Table("room", (pre, name)=>`
+        CREATE TABLE ${name} (
+            id int PRIMARY KEY AUTO_INCREMENT,
+            address VARCHAR(256) NOT NULL,
+
+            CONSTRAINT ${name}_address_uk UNIQUE (address)
+        );
+    `)
 ];
 
 async function createRequiredTablesIn(db){

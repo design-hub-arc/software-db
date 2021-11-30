@@ -20,6 +20,10 @@ Exports:
             Returns each subject that is either the named subject or one of its
             descendants.
 
+    * Rooms(DatabaseConnection)
+        * storeRoom(address)=>Promise<null>
+        * getAllRooms()=>Promise<{address}[]>
+
     * Applications(DatabaseConnection)
         * storeApplication(name, type)
             Creates a new application in the database. type is automatically
@@ -141,6 +145,34 @@ class Subjects {
     }
 }
 exports.Subjects = Subjects;
+
+class Rooms {
+    constructor(databaseConnection){
+        this.db = databaseConnection;
+    }
+
+    storeRoom(address){
+        const q = `
+            INSERT INTO ${this.db.table("room")} (address)
+            VALUES (${escape(address)});
+        `;
+        return this.db.query(q);
+    }
+
+    async getAllRooms(){
+        const q = `
+            SELECT address
+            FROM ${this.db.table("room")};
+        `;
+        const result = await this.db.query(q);
+        return result.rows.map((row)=>{
+            return {
+                address: row.address
+            };
+        })
+    }
+}
+exports.Rooms = Rooms;
 
 class Applications {
     constructor(databaseConnection){
