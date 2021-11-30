@@ -6,16 +6,18 @@ pattern, where the storage and retrieval of entities is abstractified.
 Exports:
     * Subjects(DatabaseConnection)
         Category and name columns are in lower case.
-        * storeSubject(category, name, description)=>Promise<>
-            Creates a new subject in the database. category is automatically
-            converted to the proper case. Throws an error if a subject with the
-            given name already exists.
-        * getSubjectByName(name)=>Promise<{category, name, description}>
+        * storeSubject(Subject)=>Promise<>
+            Creates a new subject in the database. Throws an error if a subject
+            with the given name already exists or if any of its parents do not
+            exist.
+        * getSubjectByName(name)=>Promise<Subject>
             Returns the subject with the given name. Throws an error if no such
             subject exists with the given name.
-        * getAllSubjects()=>Promise<{category, name, description}[]>
+        * getAllSubjects()=>Promise<Subject[]>
         * addChild(parentName, childName)=>Promise<>
             Makes the first subject the parent of the second.
+
+        TODO:
         * getAllDescendantSubjects(rootName)=>Promise<{category, name, description}>
             Returns each subject that is either the named subject or one of its
             descendants.
@@ -44,6 +46,9 @@ Exports:
 
 
 const {escape} = require("mysql");
+const {
+    Subject
+} = require("./models.js");
 
 
 
@@ -52,42 +57,63 @@ class Subjects {
         this.db = databaseConnection;
     }
 
-    storeSubject(category, name, description){
+    async storeSubject(subject){
         const q = `
             INSERT INTO ${this.db.table("subject")} (category, name, description)
-            VALUES (${escape(category.toLowerCase())}, ${escape(name.toLowerCase())}, ${escape(description)});
+            VALUES (${escape(subject.category)}, ${escape(subject.name)}, ${escape(subject.description)});
         `;
-        return this.db.query(q);
+        await this.db.query(q);
+
+        await Promise.all(subject.parents.map((parent)=>{
+            return this.addChild(parent, subject.name);
+        }));
     }
 
     async getSubjectByName(name){
         name = name.toLowerCase();
-        const q = `
+        const singleValuesQ = `
             SELECT category, description
             FROM ${this.db.table("subject")}
             WHERE name = ${escape(name)};
         `;
-        const result = await this.db.query(q);
-        return {
-            name: name,
-            category: result.rows[0].category,
-            description: result.rows[0].description
-        };
+        const singleValuesResult = await this.db.query(singleValuesQ);
+
+        const multiValuesQ = `
+            WITH RECURSIVE parents(id, name) AS (
+                SELECT id, name
+                FROM ${this.db.table("subject")}
+                WHERE name = ${escape(name)}
+
+                UNION DISTINCT
+
+                SELECT parent_id, s.name
+                FROM ${this.db.table("subject")} AS s
+                    JOIN ${this.db.table("subject_child")} AS c
+                    ON s.id = c.parent_id
+                    JOIN parents AS p
+                    ON p.id = c.child_id
+            )
+            SELECT DISTINCT(name) AS name FROM parents;
+        `;
+        const multiValuesResult = await this.db.query(multiValuesQ);
+
+        return new Subject(
+            name,
+            singleValuesResult.rows[0].category,
+            singleValuesResult.rows[0].description,
+            multiValuesResult.rows.map((row)=>row.name)
+        );
     }
 
     async getAllSubjects(){
         const q = `
-            SELECT name, category, description
+            SELECT name
             FROM ${this.db.table("subject")};
         `;
         const result = await this.db.query(q);
-        return result.rows.map(({name, category, description})=>{
-            return {
-                name: name,
-                category: category,
-                description: description
-            }; // this filters out properties we don't want to expose (ID)
-        });
+        return await Promise.all(result.rows.map(({name})=>{
+            return this.getSubjectByName(name);
+        }));
     }
 
     addChild(parentName, childName){
