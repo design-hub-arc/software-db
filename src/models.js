@@ -82,22 +82,25 @@ exports.Application = Application;
             }[]
         }[],
         tags: {
-            subject: {
+            String: {
                 name: String,
                 category: String,
                 descendants: String,
-                parents: String[]
-            },
-            value: String
-        }[],
+                parents: String[],
+
+                values: String[] // added by License
+            }
+        },
         accountingCode: String
     }
+
+Will also have an id: int field upon retrieving from the database
 */
 class License {
-    constructor(expires, applications=[], tags=[], accountingCode=undefined){
+    constructor(expires, applications=[], tags={}, accountingCode=undefined){
         this.expires = expires;
         this.applications = applications;
-        this.tags = tages;
+        this.tags = tags;
         this.accountingCode = accountingCode;
     }
 

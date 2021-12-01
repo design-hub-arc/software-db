@@ -32,12 +32,11 @@ Exports:
         * getApplicationByName(name)=>Promise<Application>
         * getAllApplications()=>Promise<Application[]>
 
-    * Licenses(DatabaseConnection)
-        * storeLicense(expires, accountingCode, applicationNames, tags)=>Promise<null>
-            if accountingCode = undefined, uses the default 'unknown' accounting
-            code. tags is an object of name: [values] pairs
-        * getAllLicenses()=>Promise<{expires, accountingCode, applicationNames, tags}[]>
-            tags is an object of name: [values] pairs
+    * Licenses(DatabaseConnection, Applications, Subjects)
+        Applications and Subjects are optional.
+        * storeLicense(License)=>Promise<null>
+        * addApplicationToLicense(applicationName, licenseId)=>Promise<null>
+        * getAllLicenses()=>Promise<License[]>
 */
 
 
@@ -46,7 +45,8 @@ const {escape} = require("mysql");
 const {
     Subject,
     Room,
-    Application
+    Application,
+    License
 } = require("./models.js");
 
 
@@ -278,29 +278,35 @@ class Applications {
 exports.Applications = Applications;
 
 class Licenses {
-    constructor(databaseConnection){
+    constructor(databaseConnection, applications=undefined, subjects=undefined){
         this.db = databaseConnection;
+        this.applications = (applications == undefined)
+            ? new Applications(databaseConnection)
+            : applications;
+        this.subjects = (subjects == undefined)
+            ? new Subjects(databaseConnection)
+            : subjects;
     }
 
-    async storeLicense(expires, accountingCode, applicationNames, tags){
-        if(applicationNames.length === 0){
+    async storeLicense(license){
+        if(license.applications.length === 0){
             throw new Error("license must contain at least 1 application");
         }
-        const licenseQ = (accountingCode == undefined) ?
+        const licenseQ = (license.accountingCode == undefined) ?
             `
                 INSERT INTO ${this.db.table("license")} (expires)
-                VALUES (${escape(expires)});
+                VALUES (${escape(license.expires)});
             `
             :
             `
                 INSERT INTO ${this.db.table("license")} (expires, accounting_code)
-                VALUES (${escape(expires)}, ${escape(accountingCode)});
+                VALUES (${escape(license.expires)}, ${escape(license.accountingCode)});
             `
-        ; // exclude accountingCode if undefined
+        ; // excludes accountingCode if undefined
         const result = await this.db.query(licenseQ);
         const licenseId = result.rows.insertId;
 
-        const bridgeQs = applicationNames.map((name)=>`
+        const bridgeQs = license.applications.map(({name})=>`
             INSERT INTO ${this.db.table("license_application")} (license_id, application_id)
             VALUES (
                 ${escape(licenseId)},
@@ -316,8 +322,8 @@ class Licenses {
 
         // insert tags
         const tagQs = [];
-        Object.entries(tags).forEach(([subject, values])=>{
-            values.forEach((value)=>{
+        Object.entries(license.tags).forEach(([name, subject])=>{
+            subject.values.forEach((value)=>{
                 tagQs.push(`
                     INSERT INTO ${this.db.table("license_subject")} (
                         license_id,
@@ -328,7 +334,7 @@ class Licenses {
                         (
                             SELECT id
                             FROM ${this.db.table("subject")}
-                            WHERE name = ${escape(subject)}
+                            WHERE name = ${escape(name)}
                         ),
                         ${escape(value)}
                     );
@@ -336,6 +342,18 @@ class Licenses {
             });
         });
         await Promise.all(tagQs.map((q)=>this.db.query(q)));
+    }
+
+    addApplicationToLicense(applicationName, licenseId){
+        const q = `
+            INSERT INTO ${this.db.table("license_application")} (license_id, application_id)
+            VALUES (${escape(licenseId)}, (
+                SELECT id
+                FROM ${this.db.table("application")}
+                WHERE name = ${escape(applicationName)}
+            ));
+        `;
+        return this.db.query(q);
     }
 
     async getAllLicenses(){
@@ -347,18 +365,16 @@ class Licenses {
         const allNonArrayPartsResult = await this.db.query(nonArrayPartsQ);
 
         const licenses = new Map();
+        let license;
         allNonArrayPartsResult.rows.forEach((row)=>{
-            licenses.set(row.id, {
-                expires: row.expires,
-                accountingCode: row.accounting_code,
-                applicationNames: [],
-                tags: {
-
-                }
-            });
+            if(!licenses.has(row.id)){
+                license = new License(row.expires, [], {}, row.accounting_code);
+                license.id = row.id;
+                licenses.set(row.id, license);
+            }
         });
 
-        // get application names
+        // get applications
         const applicationsQ = `
             SELECT license_id, a.name AS application_name
             FROM ${this.db.table("license_application")} AS la
@@ -367,9 +383,11 @@ class Licenses {
             ;
         `;
         const applicationResult = await this.db.query(applicationsQ);
-        applicationResult.rows.forEach((row)=>{
-            licenses.get(row.license_id).applicationNames.push(row.application_name);
-        });
+        await Promise.all(applicationResult.rows.map(async (row)=>{
+            licenses.get(row.license_id).applications.push(
+                await this.applications.getApplicationByName(row.application_name)
+            );
+        }));
 
         // get tags
         const tagsQ = `
@@ -381,12 +399,17 @@ class Licenses {
         `;
         const tagResult = await this.db.query(tagsQ);
         let tags;
-        tagResult.rows.forEach((row)=>{
+        // must do these two loops seperately
+        for(let row of tagResult.rows){
             tags = licenses.get(row.license_id).tags;
             if(!tags[row.subject_name]){
-                tags[row.subject_name] = [];
+                tags[row.subject_name] = await this.subjects.getSubjectByName(row.subject_name);
+                tags[row.subject_name].values = [];
             }
-            tags[row.subject_name].push(row.value);
+        }
+        tagResult.rows.map((row)=>{
+            tags = licenses.get(row.license_id).tags;
+            tags[row.subject_name].values.push(row.value);
         });
 
         return Array.from(licenses.values());
