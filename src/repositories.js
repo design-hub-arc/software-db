@@ -16,24 +16,21 @@ Exports:
         * getAllSubjects()=>Promise<Subject[]>
         * addChild(parentName, childName)=>Promise<>
             Makes the first subject the parent of the second.
-
-        TODO:
-        * getAllDescendantSubjects(rootName)=>Promise<{category, name, description}>
-            Returns each subject that is either the named subject or one of its
-            descendants.
+        * getAllDescendantSubjects(rootName)=>Promise<Subject[]>
 
     * Rooms(DatabaseConnection)
-        * storeRoom(address)=>Promise<null>
-        * getAllRooms()=>Promise<{address}[]>
+        * storeRoom(Room)=>Promise<null>
+        * getRoomByAddress(address)=>Promise<Room>
+        * getAllRooms()=>Promise<Room[]>
 
-    * Applications(DatabaseConnection)
-        * storeApplication(name, type)
-            Creates a new application in the database. type is automatically
-            converted to the proper case, and must be either "desktop", "web", or
-            "application". Throws an error if an application with the given name
-            already exists.
-        * getApplicationByName(name)=>Promise<{name, type}>
-        * getAllApplications()=>Promise<{name, type}[]>
+    * Applications(DatabaseConnection, Rooms)
+        Rooms parameter is optional.
+        * storeApplication(Application)
+            Creates a new application in the database. Throws an error if an
+            application with the given name already exists.
+        * addApplicationToRoom(applicationName, roomAddress)=>Promise<null>
+        * getApplicationByName(name)=>Promise<Application>
+        * getAllApplications()=>Promise<Application[]>
 
     * Licenses(DatabaseConnection)
         * storeLicense(expires, accountingCode, applicationNames, tags)=>Promise<null>
@@ -47,7 +44,9 @@ Exports:
 
 const {escape} = require("mysql");
 const {
-    Subject
+    Subject,
+    Room,
+    Application
 } = require("./models.js");
 
 
@@ -146,14 +145,14 @@ class Subjects {
         https://dev.mysql.com/doc/refman/8.0/en/with.html
         */
         const q = `
-            WITH RECURSIVE descendants(id, category, name, description) AS (
-                SELECT id, category, name, description
+            WITH RECURSIVE descendants(id, name) AS (
+                SELECT id, name
                 FROM ${this.db.table("subject")}
                 WHERE name = ${escape(rootName)}
 
                 UNION DISTINCT
 
-                SELECT child_id, s.category, s.name, s.description
+                SELECT child_id, s.name
                 FROM ${this.db.table("subject_child")} AS t
                     JOIN ${this.db.table("subject")} AS s ON s.id = t.child_id
                     JOIN descendants AS d ON d.id = t.parent_id
@@ -161,13 +160,9 @@ class Subjects {
             SELECT * FROM descendants;
         `;
         const r = await this.db.query(q);
-        return r.rows.map((row)=>{
-            return {
-                category: row.category,
-                name: row.name,
-                description: row.description
-            };
-        });
+        return await Promise.all(r.rows.map(({name})=>{
+            return this.getSubjectByName(name);
+        }));
     }
 }
 exports.Subjects = Subjects;
@@ -177,12 +172,22 @@ class Rooms {
         this.db = databaseConnection;
     }
 
-    storeRoom(address){
+    storeRoom(room){
         const q = `
             INSERT INTO ${this.db.table("room")} (address)
-            VALUES (${escape(address)});
+            VALUES (${escape(room.address)});
         `;
         return this.db.query(q);
+    }
+
+    async getRoomByAddress(address){
+        const q = `
+            SELECT address
+            FROM ${this.db.table("room")}
+            WHERE address = ${escape(address)};
+        `;
+        const r = await this.db.query(q);
+        return new Room(r.rows[0].address); // supposed to throw error if none for that address
     }
 
     async getAllRooms(){
@@ -191,25 +196,44 @@ class Rooms {
             FROM ${this.db.table("room")};
         `;
         const result = await this.db.query(q);
-        return result.rows.map((row)=>{
-            return {
-                address: row.address
-            };
-        })
+        return result.rows.map((row)=>new Room(row.address));
     }
 }
 exports.Rooms = Rooms;
 
 class Applications {
-    constructor(databaseConnection){
+    constructor(databaseConnection, rooms = undefined){
         this.db = databaseConnection;
+        this.rooms = (rooms == undefined) ? new Rooms(databaseConnection) : rooms;
     }
 
-    storeApplication(name, type){
-        type = type.toLowerCase();
+    async storeApplication(application){
         const q = `
             INSERT INTO ${this.db.table("application")} (name, type)
-            VALUES (${escape(name)}, ${escape(type)});
+            VALUES (${escape(application.name)}, ${escape(application.type)});
+        `;
+        const r = await this.db.query(q);
+        await Promise.all(application.rooms.map((room)=>this.addApplicationToRoom(
+            application.name,
+            room.address
+        )));
+    }
+
+    addApplicationToRoom(applicationName, roomAddress){
+        const q = `
+            INSERT INTO ${this.db.table("application_room")} (application_id, room_id)
+            VALUES (
+                (
+                    SELECT id
+                    FROM ${this.db.table("application")}
+                    WHERE name = ${escape(applicationName)}
+                ),
+                (
+                    SELECT id
+                    FROM ${this.db.table("room")}
+                    WHERE address = ${escape(roomAddress)}
+                )
+            );
         `;
         return this.db.query(q);
     }
@@ -221,24 +245,34 @@ class Applications {
             WHERE name = ${escape(name)};
         `;
         const r = await this.db.query(q);
-        return {
-            name: r.rows[0].name,
-            type: r.rows[0].type
-        };
+
+        const getRoomsQ = `
+            SELECT address
+            FROM ${this.db.table("room")}
+            WHERE id IN (
+                SELECT room_id
+                FROM ${this.db.table("application_room")}
+                WHERE application_id IN (
+                    SELECT id
+                    FROM ${this.db.table("application")}
+                    WHERE name = ${escape(name)}
+                )
+            );
+        `;
+        const roomNames = await this.db.query(getRoomsQ);
+        const rooms = await Promise.all(roomNames.rows.map(({address})=>{
+            return this.rooms.getRoomByAddress(address);
+        }));
+        return new Application(r.rows[0].name, r.rows[0].type, rooms);
     }
 
     async getAllApplications(){
         const q = `
-            SELECT name, type
+            SELECT name
             FROM ${this.db.table("application")};
         `;
         const r = await this.db.query(q);
-        return r.rows.map(({name, type})=>{
-           return {
-               name: name,
-               type: type
-           };
-        });
+        return await Promise.all(r.rows.map(({name})=>this.getApplicationByName(name)));
     }
 }
 exports.Applications = Applications;
