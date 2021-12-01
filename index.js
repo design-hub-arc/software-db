@@ -9,6 +9,7 @@ const mysql = require("mysql");
 const pug = require("pug");
 
 const {mysqlOptions, get} = require("./src/config.js");
+const repositories = require("./src/repositories.js");
 const {
     extractMySqlConfig,
     DatabaseConnection,
@@ -37,8 +38,11 @@ app.use(session({
 
 
 const db = new DatabaseConnection(get("dbPrefix"), mysqlOptions);
-createRequiredTablesIn(db);
-testDatabase(db);
+createRequiredTablesIn(db); //todo only run when cmd line flag is passed
+//testDatabase(db);
+const licenses = new repositories.Licenses(db);
+
+
 
 app.get("/", (req, res)=>{
     if(!req.session.count){
@@ -53,9 +57,11 @@ app.get("/", (req, res)=>{
     }));
 });
 
-app.get("/table", (req, res)=>{
+app.get("/table", async (req, res)=>{
     const pugFunc = pug.compileFile("./views/table.pug");
-    res.send(pugFunc({}));
+    res.send(pugFunc({
+        licenses: await licenses.getAllLicenses()
+    }));
 });
 
 app.get("/logout", (req, res)=>{
