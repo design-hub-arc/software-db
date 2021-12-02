@@ -4,7 +4,7 @@ const {
     Route,
     REQUEST_TYPES
 } = require("./controller.js");
-const {License} = require("../models.js");
+const {License} = require("../model/models.js");
 
 
 

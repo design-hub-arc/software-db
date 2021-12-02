@@ -9,15 +9,13 @@ const mysql = require("mysql");
 const bodyParser = require("body-parser");
 
 const {mysqlOptions, get} = require("./src/config.js");
-const repositories = require("./src/repositories.js");
-const {IndexController} = require("./src/controllers/indexController.js");
-const {LicenseController} = require("./src/controllers/licenseController.js");
+const {createServices} = require("./src/model/export.js");
 const {registerControllers} = require("./src/controllers/export.js");
 const {
     extractMySqlConfig,
     DatabaseConnection,
     createRequiredTablesIn
-} = require("./src/database.js");
+} = require("./src/model/database.js");
 const {testDatabase} = require("./src/test.js");
 
 
@@ -47,11 +45,8 @@ const db = new DatabaseConnection(get("dbPrefix"), mysqlOptions);
 createRequiredTablesIn(db); //todo only run when cmd line flag is passed
 //testDatabase(db);
 
-const licenses = new repositories.Licenses(db);
-const services = {
-    licenses: licenses
-};
 
+const services = createServices(db);
 
 
 registerControllers(app, services);
