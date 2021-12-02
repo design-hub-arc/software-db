@@ -1,0 +1,13 @@
+extends template.pug
+
+block content
+    form(action="/submit-edit-create-licenses")
+        input(type="hidden" id="license-id") #{license.licenseId}
+        fieldset
+            legend License info
+
+            input(type="date" id="expires" name="expires") #{license.expires}
+            label(for="expires") Expiration date
+
+            input(type="text" id="accounting-code" name="accounting-code") #{license.accountingCode}
+            label(for="accounting-code") Accounting code
