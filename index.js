@@ -6,10 +6,12 @@ const express = require("express");
 const session = require("express-session");
 const mysqlSession = require("express-mysql-session");
 const mysql = require("mysql");
+const bodyParser = require("body-parser");
 
 const {mysqlOptions, get} = require("./src/config.js");
 const repositories = require("./src/repositories.js");
 const {IndexController} = require("./src/controllers/indexController.js");
+const {LicenseController} = require("./src/controllers/licenseController.js");
 const {
     extractMySqlConfig,
     DatabaseConnection,
@@ -21,6 +23,9 @@ const {testDatabase} = require("./src/test.js");
 
 const app = express();
 app.use(express.static("public"));
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+app.use(express.json());
 
 const MySQLStore = mysqlSession(session);
 app.use(session({
@@ -49,6 +54,7 @@ const services = {
 
 
 new IndexController(services).applyTo(app);
+new LicenseController(services).applyTo(app);
 
 
 

@@ -1,13 +1,14 @@
 extends template.pug
 
 block content
-    form(action="/submit-edit-create-licenses")
-        input(type="hidden" id="license-id") #{license.licenseId}
+    form(action="/licenses/submit-edit-create" method="POST")
         fieldset
             legend License info
-
-            input(type="date" id="expires" name="expires") #{license.expires}
+            input(type="date" id="expires" name="expires" value=license.expires)
             label(for="expires") Expiration date
-
-            input(type="text" id="accounting-code" name="accounting-code") #{license.accountingCode}
+            input(type="text" id="accounting-code" name="accounting-code" value=license.accountingCode)
             label(for="accounting-code") Accounting code
+        fieldset
+            legend Submit
+            button(type="submit") Submit
+        input(type="hidden" name="license-id" value=license.licenseId)
