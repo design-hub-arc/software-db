@@ -6,10 +6,10 @@ const express = require("express");
 const session = require("express-session");
 const mysqlSession = require("express-mysql-session");
 const mysql = require("mysql");
-const pug = require("pug");
 
 const {mysqlOptions, get} = require("./src/config.js");
 const repositories = require("./src/repositories.js");
+const {IndexController} = require("./src/controllers/indexController.js");
 const {
     extractMySqlConfig,
     DatabaseConnection,
@@ -40,36 +40,15 @@ app.use(session({
 const db = new DatabaseConnection(get("dbPrefix"), mysqlOptions);
 createRequiredTablesIn(db); //todo only run when cmd line flag is passed
 //testDatabase(db);
+
 const licenses = new repositories.Licenses(db);
+const services = {
+    licenses: licenses
+};
 
 
 
-app.get("/", (req, res)=>{
-    if(!req.session.count){
-        req.session.count = 0;
-    }
-    ++req.session.count;
-
-    const pugFunc = pug.compileFile("./views/index.pug");
-
-    res.send(pugFunc({
-        name: `Test run #${req.session.count}`
-    }));
-});
-
-app.get("/table", async (req, res)=>{
-    const pugFunc = pug.compileFile("./views/table.pug");
-    res.send(pugFunc({
-        licenses: await licenses.getAllLicenses()
-    }));
-});
-
-app.get("/logout", (req, res)=>{
-   req.session.destroy((error)=>{
-       console.error("Failed to destroy session");
-       console.error(error);
-   });
-});
+new IndexController(services).applyTo(app);
 
 
 
