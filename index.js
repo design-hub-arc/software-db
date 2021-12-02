@@ -12,6 +12,7 @@ const {mysqlOptions, get} = require("./src/config.js");
 const repositories = require("./src/repositories.js");
 const {IndexController} = require("./src/controllers/indexController.js");
 const {LicenseController} = require("./src/controllers/licenseController.js");
+const {registerControllers} = require("./src/controllers/export.js");
 const {
     extractMySqlConfig,
     DatabaseConnection,
@@ -53,8 +54,7 @@ const services = {
 
 
 
-new IndexController(services).applyTo(app);
-new LicenseController(services).applyTo(app);
+registerControllers(app, services);
 
 
 

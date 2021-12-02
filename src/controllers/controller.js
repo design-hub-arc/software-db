@@ -5,6 +5,19 @@ routing and other front-end tasks
 
 
 
+function attempt(fn){
+    return async (req, res, next)=>{
+        try {
+            await fn(req, res, next);
+        } catch(ex){
+            console.error(ex);
+            res.redirect("/");
+        }
+    };
+}
+
+
+
 class AbstractController {
     constructor(services, routePrefix = ""){
         this.routePrefix = routePrefix;
@@ -14,7 +27,7 @@ class AbstractController {
     applyTo(expressApp){
         const prefix = (this.routePrefix === "") ? "" : `/${this.routePrefix}`;
         this.getRoutes().forEach((route)=>{
-            route.registerFunction(expressApp, `${prefix}/${route.endpoint}`, route.fn);
+            route.registerFunction(expressApp, `${prefix}/${route.endpoint}`, attempt(route.fn));
             console.log(`Registered route ${prefix}/${route.endpoint}`);
         });
     }
