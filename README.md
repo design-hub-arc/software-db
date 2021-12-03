@@ -28,6 +28,8 @@ The `-d` flag tells the program to create the database tables and indexes it
 needs.
 
 # Command Line Options
+- `-h`: displays command line options
 - `-d`: create database tables and indexes that are missing. Does not delete or
     modify existing tables, so you needn't worry if you run it when tables are
     already set up.
+- `-t`: runs the contents of `src/test.js`

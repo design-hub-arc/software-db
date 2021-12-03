@@ -16,7 +16,6 @@ const {
     extractMySqlConfig,
     DatabaseConnection
 } = require("./src/model/database.js");
-const {testDatabase} = require("./src/test.js");
 
 
 
@@ -43,7 +42,7 @@ app.use(session({
 
 const db = new DatabaseConnection(get("dbPrefix"), mysqlOptions);
 parseCommandLineArguments(db);
-//testDatabase(db);
+
 
 
 const services = createServices(db);
