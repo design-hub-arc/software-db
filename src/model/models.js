@@ -1,6 +1,5 @@
 /*
 This file contains the various Data Transfer Object (DTO) classes.
-Not yet implemented
 */
 
 

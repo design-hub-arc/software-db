@@ -41,27 +41,19 @@ app.use(session({
 
 
 const db = new DatabaseConnection(get("dbPrefix"), mysqlOptions);
-parseCommandLineArguments(db);
-
-
-
 const services = createServices(db);
 
+parseCommandLineArguments(db).then(()=>{
+    registerControllers(app, services);
 
-registerControllers(app, services);
-
-
-
-const server = app.listen(get("port"), ()=>{
-    console.log(`Software DB started on http://localhost:${get("port")}`);
-});
-
-process.on("SIGTERM", ()=>{
-    server.close(()=>{
-        console.log("server closed");
+    // todo: add host option to config
+    const server = app.listen(get("port"), "localhost", ()=>{
+        console.log(`Software DB started on http://${server.address().address}:${server.address().port}`);
     });
-    db.end(()=>{
-        console.log("database connection closed");
+
+    process.on("SIGTERM", ()=>{
+        server.close(()=>console.log("server closed"));
+        db.end(()=>console.log("database connection closed"));
+        // do I need to close the sessionStore?
     });
-    // do I need to close the sessionStore?
 });
