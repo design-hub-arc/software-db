@@ -11,10 +11,10 @@ const bodyParser = require("body-parser");
 const {mysqlOptions, get} = require("./src/config.js");
 const {createServices} = require("./src/model/export.js");
 const {registerControllers} = require("./src/controllers/export.js");
+const {parseCommandLineArguments} = require("./src/commandLine.js");
 const {
     extractMySqlConfig,
-    DatabaseConnection,
-    createRequiredTablesIn
+    DatabaseConnection
 } = require("./src/model/database.js");
 const {testDatabase} = require("./src/test.js");
 
@@ -42,7 +42,7 @@ app.use(session({
 
 
 const db = new DatabaseConnection(get("dbPrefix"), mysqlOptions);
-createRequiredTablesIn(db); //todo only run when cmd line flag is passed
+parseCommandLineArguments(db);
 //testDatabase(db);
 
 
