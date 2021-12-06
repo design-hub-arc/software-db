@@ -4,11 +4,55 @@ block content
     form(action="/licenses/submit-edit-create" method="POST")
         fieldset
             legend License info
-            input(type="date" id="expires" name="expires" value=license.expires)
-            label(for="expires") Expiration date
-            input(type="text" id="accounting-code" name="accounting-code" value=license.accountingCode)
-            label(for="accounting-code") Accounting code
+
+            div
+                label(for="expires") Expiration date
+                input(type="date" id="expires" name="expires" value=license.expires)
+
+            div
+                label(for="accounting-code") Accounting code
+                input(type="text" id="accounting-code" name="accounting-code" value=license.accountingCode)
+
+            fieldset
+                legend applications
+
+                table
+                    thead
+                        tr
+                            th name
+                            th type
+                            th rooms
+                    tbody#applications
+                        each application in license.applications
+                            tr
+                                td name
+                                td type
+                                td rooms
+
+                label(for="add-application") add application
+                select#add-application
+                    option(value="")
+                    each application in allApplicationNames
+                        option(value=`${application}`) #{application}
+                fieldset
+                    legend new application
+
+                    div
+                        label(for="app-name") name
+                        input(type="text" name="app-name")#app-name
+
+                    div
+                        label(for="app-type") type
+                        input(type="text" name="app-type")#app-type
+
+                    div
+                        label(for="app-rooms") rooms
+                        input(type="text" name="app-rooms")#app-rooms
+
+                    button#new-application add this application
         fieldset
             legend Submit
             button(type="submit") Submit
         input(type="hidden" name="license-id" value=license.licenseId)
+
+    script(src="../scripts/edit-create-license.js" defer)

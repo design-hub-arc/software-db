@@ -31,6 +31,7 @@ Exports:
         * addApplicationToRoom(applicationName, roomAddress)=>Promise<null>
         * getApplicationByName(name)=>Promise<Application>
         * getAllApplications()=>Promise<Application[]>
+        * getAllApplicationNames()=>Promise<String[]>
 
     * Licenses(DatabaseConnection, Applications, Subjects)
         Applications and Subjects are optional.
@@ -266,12 +267,17 @@ class Applications {
     }
 
     async getAllApplications(){
+        const names = await this.getAllApplicationNames();
+        return await Promise.all(names.map((name)=>this.getApplicationByName(name)));
+    }
+
+    async getAllApplicationNames(){
         const q = `
             SELECT name
             FROM ${this.db.table("application")};
         `;
         const r = await this.db.query(q);
-        return await Promise.all(r.rows.map(({name})=>this.getApplicationByName(name)));
+        return r.rows.map(({name})=>name);
     }
 }
 exports.Applications = Applications;

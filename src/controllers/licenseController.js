@@ -26,8 +26,10 @@ class LicenseController extends AbstractController {
     async createLicense(req, res){
         const pugFunc = pug.compileFile("./views/edit-create-license.pug");
         const license = new License(new Date());
+        const allApplicationNames = await this.services.applications.getAllApplicationNames();
         res.send(pugFunc({
-            license: license
+            license: license,
+            allApplicationNames: allApplicationNames
         }));
     }
 
