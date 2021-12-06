@@ -35,9 +35,8 @@ Exports:
             * returns the prefixed name of the table in this DB with the given
               base name.
 
-    * createRequiredTablesIn(db)=>Promise<null>
-        creates all tables this program requires in the given database. Does not
-        create tables that already exist.
+    * setupDatabase(db)=>Promise<null>
+        ensures the database schema and data is as the program requires
 */
 
 
@@ -120,8 +119,10 @@ class Table {
     }
 
     async createIn(db){
+        const fullName = db.table(this.name);
+        console.log(`creating table ${fullName}`);
         const q = `
-            CREATE TABLE ${db.table(this.name)} (
+            CREATE TABLE ${fullName} (
                 ${this.creationQuery(db.prefix, db.table(this.name))}
             );
         `;
@@ -141,7 +142,7 @@ class Table {
         for(let column of this.indexedColumns){
             // TODO: make sure this isn't too long
             //                                               parens around stuff
-            idxName = `${db.prefix}${this.name}_${column.replace(/\(.*\)/g, "")}_idx`;
+            idxName = `${fullName}_${column.replace(/\(.*\)/g, "")}_idx`;
             result = await db.query(`
                 SELECT COUNT(*) AS count
                 FROM information_schema.statistics
@@ -150,11 +151,12 @@ class Table {
                   AND table_schema = ${mysql.escape(db.databaseName)};
             `);
             if(result.rows[0].count === 0){
+                console.log(`creating index ${idxName}`);
                 await db.query(`
                     CREATE INDEX ${idxName} ON ${fullName} (${column});
                 `);
             } else {
-                console.log(`${idxName} exists`);
+                //console.log(`${idxName} exists`);
             }
         }
     }
@@ -163,11 +165,9 @@ class Table {
 const REQUIRED_TABLES = [
     new Table("subject", (pre, name)=>`
         id int PRIMARY KEY AUTO_INCREMENT,
-        category VARCHAR(5) NOT NULL,
         name VARCHAR(20) NOT NULL,
         description VARCHAR(255) NOT NULL DEFAULT '',
 
-        CONSTRAINT ${name}_category_ck CHECK (category IN ('who', 'what', 'when', 'where', 'why')),
         CONSTRAINT ${name}_name_uk UNIQUE(name)
     `, ["name"]),
 
@@ -244,4 +244,24 @@ async function createRequiredTablesIn(db){
         await table.createIndexes(db);
     }
 }
-exports.createRequiredTablesIn = createRequiredTablesIn;
+
+async function createRequiredDataIn(db){
+    // create base categories if they do not exist
+    const subjectQ = `
+        INSERT IGNORE INTO ${db.table("subject")} (name, description)
+        VALUES
+            ('who', 'a person'),
+            ('what', 'a thing'),
+            ('when', 'a time'),
+            ('where', 'a place'),
+            ('why', 'a purpose')
+        ;
+    `;
+    await db.query(subjectQ);
+}
+
+async function setupDatabase(db){
+    await createRequiredTablesIn(db);
+    await createRequiredDataIn(db);
+}
+exports.setupDatabase = setupDatabase;

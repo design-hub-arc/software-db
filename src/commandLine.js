@@ -5,7 +5,7 @@ real CLI library as the program grows more complicated.
 
 
 
-const {createRequiredTablesIn} = require("./model/database.js");
+const {setupDatabase} = require("./model/database.js");
 const {testDatabase} = require("./test.js");
 
 
@@ -22,7 +22,7 @@ async function parseCommandLineArguments(databaseConnection){
         `);
     }
     if(args.includes("-d")){
-        await createRequiredTablesIn(databaseConnection);
+        await setupDatabase(databaseConnection);
     }
     if(args.includes("-t")){
         await testDatabase(databaseConnection);

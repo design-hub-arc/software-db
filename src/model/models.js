@@ -7,15 +7,13 @@ This file contains the various Data Transfer Object (DTO) classes.
 /*
     {
         name: String,
-        category: String,
         description: String,
         parents: String[]
     }
 */
 class Subject {
-    constructor(name, category, description, parents=[]){
+    constructor(name, description, parents=[]){
         this.name = name.toLowerCase();
-        this.category = category.toLowerCase();
         this.description = description;
         this.parents = parents;
     }
@@ -83,8 +81,7 @@ exports.Application = Application;
         tags: {
             String: {
                 name: String,
-                category: String,
-                descendants: String,
+                description: String,
                 parents: String[],
 
                 values: String[] // added by License

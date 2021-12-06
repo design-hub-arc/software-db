@@ -5,7 +5,7 @@ pattern, where the storage and retrieval of entities is abstractified.
 
 Exports:
     * Subjects(DatabaseConnection)
-        Category and name columns are in lower case.
+         name column is in lower case.
         * storeSubject(Subject)=>Promise<>
             Creates a new subject in the database. Throws an error if a subject
             with the given name already exists or if any of its parents do not
@@ -58,8 +58,8 @@ class Subjects {
 
     async storeSubject(subject){
         const q = `
-            INSERT INTO ${this.db.table("subject")} (category, name, description)
-            VALUES (${escape(subject.category)}, ${escape(subject.name)}, ${escape(subject.description)});
+            INSERT INTO ${this.db.table("subject")} (name, description)
+            VALUES (${escape(subject.name)}, ${escape(subject.description)});
         `;
         await this.db.query(q);
 
@@ -71,7 +71,7 @@ class Subjects {
     async getSubjectByName(name){
         name = name.toLowerCase();
         const singleValuesQ = `
-            SELECT category, description
+            SELECT description
             FROM ${this.db.table("subject")}
             WHERE name = ${escape(name)};
         `;
@@ -98,7 +98,6 @@ class Subjects {
 
         return new Subject(
             name,
-            singleValuesResult.rows[0].category,
             singleValuesResult.rows[0].description,
             multiValuesResult.rows.map((row)=>row.name)
         );
